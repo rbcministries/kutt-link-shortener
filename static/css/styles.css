@@ -783,6 +783,16 @@ table .tab a:not(.active):hover {
   padding: 2rem;
 }
 
+.dialog.qrcode .content-wrapper {
+  align-items: center;
+}
+
+.dialog.qrcode .qrcode-downloads {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
 .dialog .content-wrapper {
   display: flex;
   flex-direction: column;

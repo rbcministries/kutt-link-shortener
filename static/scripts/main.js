@@ -98,7 +98,86 @@ function handleQRCode(element, id) {
     colorDark : "#000000",
     colorLight : "#ffffff",
     correctLevel : QRCode.CorrectLevel.H
-  });   
+  });
+
+  const url = element.dataset.url;
+  const downloads = document.createElement("div");
+  downloads.className = "qrcode-downloads";
+  downloads.append(
+    createQRCodeDownloadButton("Download PNG", () => downloadQRCodePNG(qrcode, url)),
+    createQRCodeDownloadButton("Download SVG", () => downloadQRCodeSVG(qrcode, url))
+  );
+  dialogContent.appendChild(downloads);
+}
+
+// quiet zone around the QR code, in modules, as required by the QR spec
+const QR_CODE_MARGIN = 4;
+const QR_CODE_DOWNLOAD_SIZE = 1024;
+
+function createQRCodeDownloadButton(label, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "secondary";
+  button.textContent = label;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+// list of dark module positions, offset by the quiet zone
+function getQRCodeDarkModules(qrcode) {
+  const model = qrcode._oQRCode;
+  const count = model.getModuleCount();
+  const modules = [];
+  for (let row = 0; row < count; row++) {
+    for (let col = 0; col < count; col++) {
+      if (model.isDark(row, col)) {
+        modules.push([col + QR_CODE_MARGIN, row + QR_CODE_MARGIN]);
+      }
+    }
+  }
+  return { size: count + QR_CODE_MARGIN * 2, modules };
+}
+
+// e.g. "https://go.example.org/gala2026" -> "gala2026-qr.png"
+function getQRCodeFilename(url, extension) {
+  const slug = url.split("/").filter(Boolean).pop().replace(/[^\w-]/g, "") || "qrcode";
+  return `${slug}-qr.${extension}`;
+}
+
+function downloadQRCodePNG(qrcode, url) {
+  const { size, modules } = getQRCodeDarkModules(qrcode);
+  // whole pixels per module keep the edges sharp
+  const scale = Math.ceil(QR_CODE_DOWNLOAD_SIZE / size);
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size * scale;
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#000000";
+  modules.forEach(([x, y]) => context.fillRect(x * scale, y * scale, scale, scale));
+  canvas.toBlob(blob => downloadFile(blob, getQRCodeFilename(url, "png")), "image/png");
+}
+
+function downloadQRCodeSVG(qrcode, url) {
+  const { size, modules } = getQRCodeDarkModules(qrcode);
+  const path = modules.map(([x, y]) => `M${x},${y}h1v1h-1z`).join("");
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" ` +
+    `width="${QR_CODE_DOWNLOAD_SIZE}" height="${QR_CODE_DOWNLOAD_SIZE}" shape-rendering="crispEdges">` +
+    `<rect width="100%" height="100%" fill="#ffffff"/>` +
+    `<path d="${path}" fill="#000000"/></svg>`;
+  downloadFile(new Blob([svg], { type: "image/svg+xml" }), getQRCodeFilename(url, "svg"));
+}
+
+function downloadFile(blob, filename) {
+  const objectURL = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectURL;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(objectURL), 0);
 }
 
 // copy the link to clipboard
