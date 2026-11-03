@@ -107,7 +107,11 @@ if (env.OIDC_ENABLED) {
         },
         async (req, tokenset, userinfo, done) => {
           try {
-            const email = userinfo[env.OIDC_EMAIL_CLAIM];
+            // emails are stored lowercase, but providers (e.g. Entra ID) may return mixed case
+            const email = userinfo[env.OIDC_EMAIL_CLAIM]?.toLowerCase();
+            if (!email) {
+              return done(new Error(`OIDC userinfo has no "${env.OIDC_EMAIL_CLAIM}" claim.`));
+            }
             const existingUser = await query.user.find({ email });
   
             // Existing user.
